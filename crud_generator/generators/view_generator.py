@@ -27,9 +27,8 @@ def generate_view_index(table_name, columns, foreign_keys: list):
         is_fk_column = False
         for fk in foreign_keys:
             if fk['local_column'] == col['name']:
-                # Use the referenced table name and referenced column as header.
-                # This matches the alias generated in the model.
-                headers_list.append(f"                <th>{fk['referenced_table'].replace('_', ' ').title()} ({fk['referenced_column'].replace('_', ' ').title()})</th>")
+                # Use the referenced table name and display column as header.
+                headers_list.append(f"                <th>{fk['referenced_table'].replace('_', ' ').title()} ({fk['display_column'].replace('_', ' ').title()})</th>")
                 is_fk_column = True
                 break
         if not is_fk_column:
@@ -42,8 +41,8 @@ def generate_view_index(table_name, columns, foreign_keys: list):
         is_fk_column = False
         for fk in foreign_keys:
             if fk['local_column'] == col['name']:
-                # Access data using the alias generated in the model: referenced_table_referenced_column
-                alias = f"{fk['referenced_table']}_{fk['referenced_column']}"
+                # Access data using the alias generated in the model: referenced_table_display_column
+                alias = f"{fk['referenced_table']}_{fk['display_column']}"
                 rows_list.append(f"                        <td><?= htmlspecialchars($row['{alias}']) ?></td>")
                 is_fk_column = True
                 break
@@ -147,7 +146,7 @@ def generate_view_create(table_name, columns, foreign_keys: list) -> str:
                 <option value="">Seleccione un/a {label}</option>
                 <?php foreach (${referenced_table_name}s as ${referenced_table_name}_item): ?>
                     <option value="<?= htmlspecialchars(${referenced_table_name}_item['{referenced_id_column}']) ?>">
-                        <?= htmlspecialchars(${referenced_table_name}_item['{referenced_id_column}']) ?> </option>
+                        <?= htmlspecialchars(${referenced_table_name}_item['{fk_info['display_column']}']) ?> </option>
                 <?php endforeach; ?>
             </select>
         </div>"""
@@ -225,7 +224,7 @@ def generate_view_edit(table_name, columns, foreign_keys: list) -> str:
                 <?php foreach (${referenced_table_name}s as ${referenced_table_name}_item): ?>
                     <option value="<?= htmlspecialchars(${referenced_table_name}_item['{referenced_id_column}']) ?>"
                         <?= (${table_name}->{col['name']} == ${referenced_table_name}_item['{referenced_id_column}']) ? 'selected' : '' ?>>
-                        <?= htmlspecialchars(${referenced_table_name}_item['{referenced_id_column}']) ?> <!-- Adjust this to display a descriptive column if needed -->
+                        <?= htmlspecialchars(${referenced_table_name}_item['{fk_info['display_column']}']) ?>
                     </option>
                 <?php endforeach; ?>
             </select>

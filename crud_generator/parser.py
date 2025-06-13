@@ -1,5 +1,7 @@
 import re
 
+PREFERRED_DISPLAY_COLUMNS = ['nombre', 'name', 'title', 'titulo', 'descripcion', 'description', 'username', 'login', 'email']
+
 class SQLParser:
     def __init__(self, sql_path):
         self.sql_path = sql_path
@@ -58,6 +60,36 @@ class SQLParser:
             }
 
         print(f"DEBUG: Se encontraron {matches_found} coincidencias de CREATE TABLE.")
+
+        # Enhance foreign keys with display columns
+        for table_name, table_data in tables.items():
+            print(f"DEBUG: Processing foreign keys for table: {table_name}")
+            for fk in table_data['foreign_keys']:
+                referenced_table_name = fk['referenced_table']
+                referenced_column_name = fk['referenced_column'] # This is the PK of the referenced table
+                display_column_for_fk = referenced_column_name # Default to PK
+
+                if referenced_table_name in tables:
+                    columns_of_referenced_table = tables[referenced_table_name]['columns']
+                    found_preferred = False
+                    for preferred_name in PREFERRED_DISPLAY_COLUMNS:
+                        for col_data in columns_of_referenced_table:
+                            if col_data['name'].lower() == preferred_name.lower():
+                                display_column_for_fk = col_data['name']
+                                found_preferred = True
+                                print(f"DEBUG: Found preferred display column '{display_column_for_fk}' for FK {fk['local_column']} -> {referenced_table_name}.{referenced_column_name}")
+                                break
+                        if found_preferred:
+                            break
+                    if not found_preferred:
+                        print(f"DEBUG: No preferred display column found for FK {fk['local_column']} -> {referenced_table_name}.{referenced_column_name}. Defaulting to PK '{display_column_for_fk}'.")
+                else:
+                    print(f"WARN: Referenced table '{referenced_table_name}' not found in parsed tables. Cannot determine display column for FK from {table_name}.{fk['local_column']}.")
+
+                fk['display_column'] = display_column_for_fk
+                print(f"DEBUG: FK details for {table_name}.{fk['local_column']}: {fk}")
+
+
         return tables
 
     def parse_table_definition_content(self, content_str):
