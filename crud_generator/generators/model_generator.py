@@ -35,23 +35,65 @@ def generate_model(table_name: str, columns: list, foreign_keys: list) -> str:
     php_fks_list_items = []
     for fk in foreign_keys:
         php_fks_list_items.append(
-            f"            ['local_column' => '{fk['local_column']}', 'referenced_table' => '{fk['referenced_table']}', 'referenced_column' => '{fk['referenced_column']}']"
+            f"            ['local_column' => '{fk['local_column']}', 'referenced_table' => '{fk['referenced_table']}', 'referenced_column' => '{fk['referenced_column']}', 'display_column' => '{fk['display_column']}']"
         )
     php_foreign_keys_data = "[\n" + ",\n".join(php_fks_list_items) + "\n        ]"
 
     # CORREGIDO: Generar métodos auxiliares para obtener datos de tablas relacionadas
     helper_methods = ""
-    referenced_tables = set()
+    # Usar un diccionario para evitar duplicados por si múltiples FKs apuntan a la misma tabla pero queremos un método por FK referenciada de forma única
+    # En este caso, la lógica original de generar un método por tabla referenciada es más simple y se mantiene.
+    # Si se quisiera un método por CADA FK (ej. getAuthorsAsEditor, getAuthorsAsReviewer), se necesitaría un enfoque diferente.
+    # Por ahora, un método por tabla referenciada es suficiente.
+    processed_referenced_tables_for_helpers = set()
     for fk in foreign_keys:
-        table = fk['referenced_table']
-        if table not in referenced_tables:
-            referenced_tables.add(table)
-            method_name = f"getAll{table.capitalize()}"
+        referenced_table = fk['referenced_table']
+        if referenced_table not in processed_referenced_tables_for_helpers:
+            processed_referenced_tables_for_helpers.add(referenced_table)
+
+            # Capitalizar el nombre de la tabla para el nombre del método
+            # ej. 'user_roles' se convierte en 'UserRoles'
+            method_name_suffix = ''.join(word.capitalize() for word in referenced_table.split('_'))
+            method_name = f"getAll{method_name_suffix}"
+
+            # Usar referenced_column para el valor y display_column para el texto
+            value_column = fk['referenced_column']
+            display_text_column = fk['display_column']
+
             helper_methods += f"""
-    // Método para obtener todos los registros de {table} (para formularios)
+    // Método para obtener todos los registros de {referenced_table} (para formularios)
+    // Selecciona {value_column} como valor y {display_text_column} como texto.
     public function {method_name}() {{
-        $query = "SELECT id, nombre FROM {table} ORDER BY nombre";
+        $query = "SELECT `{value_column}`, `{display_text_column}` FROM `{referenced_table}` ORDER BY `{display_text_column}`";
         $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }}
+"""
+
+    static_helper_method = f"""
+    /**
+     * Método genérico para obtener todos los registros de una tabla específica.
+     * Útil para llenar dropdowns o listados donde no hay una FK directa definida en el modelo actual.
+     *
+     * @param string $tableName El nombre de la tabla de la cual obtener los datos.
+     * @param array $columnsToSelect Array de columnas a seleccionar. Por defecto ['*'].
+     * @param string|null $orderByColumn Columna opcional por la cual ordenar los resultados.
+     * @return array Retorna un array de registros asociativos.
+     */
+    public static function getAllFromTable(string $tableName, array $columnsToSelect = ['*'], ?string $orderByColumn = null): array {{
+        $database = new Database();
+        $conn = $database->getConnection();
+
+        $selectClause = implode(", ", array_map(function($col) {{ return "`" . $col . "`"; }}, $columnsToSelect));
+
+        $query = "SELECT " . $selectClause . " FROM `" . $tableName . "`";
+
+        if ($orderByColumn !== null) {{
+            $query .= " ORDER BY `" . $orderByColumn . "`";
+        }}
+
+        $stmt = $conn->prepare($query);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }}
@@ -97,12 +139,15 @@ class {class_name} {{
             $referenced_table_name = $fk_info['referenced_table'];
             $local_column = $fk_info['local_column'];
             $referenced_column = $fk_info['referenced_column'];
+            // NUEVO: Usar display_column recuperado de $this->foreign_keys_data
+            $display_column_name = $fk_info['display_column'];
 
-            // Alias para mostrar el nombre de la tabla relacionada
-            $alias_for_display = $referenced_table_name . "_nombre";
+            // Alias para mostrar el nombre de la tabla relacionada y su columna de visualización
+            // ej., 'categories_name' o 'users_username'
+            $alias_for_display = $referenced_table_name . "_" . $display_column_name;
             
-            // Seleccionar la columna 'nombre' de la tabla referenciada (asumiendo que tienen 'nombre')
-            $select_columns[] = "`" . $referenced_table_name . "`.`nombre` AS `" . $alias_for_display . "`";
+            // Seleccionar la columna de visualización de la tabla referenciada
+            $select_columns[] = "`" . $referenced_table_name . "`.`" . $display_column_name . "` AS `" . $alias_for_display . "`";
             
             // Construir el JOIN
             $joins[] = "LEFT JOIN `" . $referenced_table_name . "` ON `" . $this->table_name . "`.`" . $local_column . "` = `" . $referenced_table_name . "`.`" . $referenced_column . "`";
@@ -141,5 +186,6 @@ class {class_name} {{
         $stmt->bindParam(1, $this->{primary_key});
         return $stmt->execute();
     }}{helper_methods}
+{static_helper_method}
 }}
 ?>"""

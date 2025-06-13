@@ -14,17 +14,23 @@ def generate_controller(table_name: str, columns: list, foreign_keys: list) -> s
 
     # Lógica para obtener datos de tablas relacionadas para los SELECTs (claves foráneas)
     related_data_fetch = []
+    # El nombre de la instancia del modelo actual, ej. $posts si table_name es 'posts'
+    model_instance_var_name = f"${table_name}"
+
     for fk in foreign_keys:
         referenced_table_name = fk['referenced_table']
-        referenced_class_name = ''.join(word.capitalize() for word in referenced_table_name.split('_'))
-        related_data_fetch.append(f"""
+        # Nombre del método en el modelo actual, ej. getAllCategories
+        method_to_call = f"getAll{''.join(word.capitalize() for word in referenced_table_name.split('_'))}"
+        # Clave para $this->data, ej. 'categories_options' o 'categories'
+        # La vista espera: foreach (${referenced_table_name}s as ${referenced_table_name}_item)
+        # Entonces, la clave en $this->data debe ser referenced_table_name + "s"
+        data_key_for_view = f"{referenced_table_name}s"
+
+        related_data_fetch.append(f'''
         // Obtener datos para el SELECT de {fk['local_column']} (tabla {referenced_table_name})
-        require_once 'models/{referenced_class_name}.php';
-        ${referenced_table_name}_model = new {referenced_class_name}();
-        $stmt_{referenced_table_name} = ${referenced_table_name}_model->readAll();
-        // Convertir el PDOStatement a un array para pasarlo a la vista
-        $this->data['{referenced_table_name}s'] = $stmt_{referenced_table_name}->fetchAll(PDO::FETCH_ASSOC);
-        """)
+        // Se utiliza el método {method_to_call}() del modelo ({class_name}.php)
+        // Asegurarse que {model_instance_var_name} está instanciado antes de esta línea.
+        $this->data['{data_key_for_view}'] = {model_instance_var_name}->{method_to_call}();''')
 
     return f"""<?php
 require_once 'config/Database.php';
@@ -58,6 +64,8 @@ class {class_name}Controller {{
 
     public function create() {{
         $title = "Crear Nuevo {class_name}";
+        // Instanciar el modelo principal ANTES de obtener datos relacionados
+        ${table_name} = new {class_name}();
         {' '.join(related_data_fetch)} // Incluir lógica para obtener datos relacionados
         extract($this->data); // Extraer datos relacionados si los hay
         include 'views/{table_name}/create.php';
