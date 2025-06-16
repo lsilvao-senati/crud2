@@ -106,20 +106,25 @@ class SQLParser:
             if not line_to_process:
                 continue
 
-            # FOREIGN KEY
-            fk_match = re.match(
-                r'FOREIGN\s+KEY\s*\([`"]?(\w+)[`"]?\)\s*REFERENCES\s*[`"]?(\w+)[`"]?\s*\([`"]?(\w+)[`"]?\)(?:\s*ON\s+DELETE\s+\w+)?(?:\s*ON\s+UPDATE\s+\w+)?',
-                line_to_process,
-                re.IGNORECASE
-            )
-            if fk_match:
-                local_column, referenced_table, referenced_column = fk_match.groups()
-                foreign_keys.append({
-                    'local_column': local_column,
-                    'referenced_table': referenced_table,
-                    'referenced_column': referenced_column
-                })
-                continue
+            # Broader check for FOREIGN KEY lines
+            if line_to_process.strip().upper().startswith('FOREIGN KEY'):
+                # Attempt to parse it for FK details using the existing detailed regex
+                fk_match_detailed = re.match(
+                    r'FOREIGN\s+KEY\s*\([`"]?(\w+)[`"]?\)\s*REFERENCES\s*[`"]?(\w+)[`"]?\s*\([`"]?(\w+)[`"]?\)(?:\s*ON\s+DELETE\s+\w+)?(?:\s*ON\s+UPDATE\s+\w+)?',
+                    line_to_process,
+                    re.IGNORECASE
+                )
+                if fk_match_detailed:
+                    local_column, referenced_table, referenced_column = fk_match_detailed.groups()
+                    foreign_keys.append({
+                        'local_column': local_column,
+                        'referenced_table': referenced_table,
+                        'referenced_column': referenced_column
+                        # display_column will be added later in the main parse method
+                    })
+                else:
+                    print(f"DEBUG: Line started with FOREIGN KEY but did not match detailed FK regex: '{line_to_process}'")
+                continue # Always continue to prevent falling through to column parsing
 
             # PRIMARY KEY (línea separada)
             pk_match = re.match(
