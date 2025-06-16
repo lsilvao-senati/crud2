@@ -26,7 +26,10 @@ def generate_view_index(table_name, columns, foreign_keys: list):
     for col in columns:
         is_fk_column = False
         for fk in foreign_keys:
-            if fk['local_column'] == col['name']:
+            # Case-insensitive comparison for FK matching
+            local_col_name = fk.get('local_column', '') # Default to empty string if key missing
+            current_col_name = col.get('name', '')     # Default to empty string if key missing
+            if local_col_name and current_col_name and local_col_name.lower() == current_col_name.lower():
                 # Use the referenced table name and display column as header.
                 headers_list.append(f"                <th>{fk['referenced_table'].replace('_', ' ').title()} ({fk['display_column'].replace('_', ' ').title()})</th>")
                 is_fk_column = True
@@ -40,7 +43,10 @@ def generate_view_index(table_name, columns, foreign_keys: list):
     for col in columns:
         is_fk_column = False
         for fk in foreign_keys:
-            if fk['local_column'] == col['name']:
+            # Case-insensitive comparison for FK matching
+            local_col_name = fk.get('local_column', '')
+            current_col_name = col.get('name', '')
+            if local_col_name and current_col_name and local_col_name.lower() == current_col_name.lower():
                 # Access data using the alias generated in the model: referenced_table_display_column
                 alias = f"{fk['referenced_table']}_{fk['display_column']}"
                 rows_list.append(f"                        <td><?= htmlspecialchars($row['{alias}']) ?></td>")
@@ -128,7 +134,11 @@ def generate_view_create(table_name, columns, foreign_keys: list) -> str:
         is_foreign_key = False
         fk_info = None
         for fk in foreign_keys:
-            if fk['local_column'] == col['name']:
+            # Case-insensitive comparison for FK matching
+            # Ensure both keys exist before calling .lower() to prevent errors if dicts are malformed
+            local_col_name = fk.get('local_column')
+            current_col_name = col.get('name')
+            if local_col_name and current_col_name and local_col_name.lower() == current_col_name.lower():
                 is_foreign_key = True
                 fk_info = fk
                 break
@@ -208,7 +218,11 @@ def generate_view_edit(table_name, columns, foreign_keys: list) -> str:
             is_foreign_key = False
             fk_info = None
             for fk in foreign_keys:
-                if fk['local_column'] == col['name']:
+                # Case-insensitive comparison for FK matching
+                # Ensure both keys exist before calling .lower() to prevent errors if dicts are malformed
+                local_col_name = fk.get('local_column')
+                current_col_name = col.get('name')
+                if local_col_name and current_col_name and local_col_name.lower() == current_col_name.lower():
                     is_foreign_key = True
                     fk_info = fk
                     break
