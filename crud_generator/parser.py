@@ -110,7 +110,7 @@ class SQLParser:
             if line_to_process.strip().upper().startswith('FOREIGN KEY'):
                 # Attempt to parse it for FK details using the existing detailed regex
                 fk_match_detailed = re.match(
-                    r'FOREIGN\s+KEY\s*\([`"]?(\w+)[`"]?\)\s*REFERENCES\s*[`"]?(\w+)[`"]?\s*\([`"]?(\w+)[`"]?\)(?:\s*ON\s+DELETE\s+\w+)?(?:\s*ON\s+UPDATE\s+\w+)?',
+                    r'FOREIGN\s+KEY\s*\(\s*[`"]?(\w+)[`"]?\s*\)\s*REFERENCES\s+[`"]?(\w+)[`"]?\s*\(\s*[`"]?(\w+)[`"]?\s*\)(?:\s*ON\s+DELETE\s+\w+)?(?:\s*ON\s+UPDATE\s+\w+)?',
                     line_to_process,
                     re.IGNORECASE
                 )
